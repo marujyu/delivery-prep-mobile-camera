@@ -7,8 +7,8 @@
 1. 対象スプレッドシートから「拡張機能」→「Apps Script」を開きます。
 2. 念のため現在のApps Scriptプロジェクトをバックアップします。
 3. 既存のスクリプトファイルの内容を `gas/Code.gs` の内容で更新します。ファイル名が `コード.gs` でも問題ありません。
-4. Apps ScriptエディタでHTMLファイルを追加し、ファイル名を拡張子なしで `ApiScanResult` とします。
-5. `gas/ApiScanResult.html` の内容を追加したHTMLファイルへ貼り付けます。
+4. Apps ScriptエディタでHTMLファイルを2つ追加し、ファイル名を拡張子なしで `ApiScanResult`、`MobileProgress` とします。
+5. `gas/ApiScanResult.html` と `gas/MobileProgress.html` の内容を、それぞれ追加したHTMLファイルへ貼り付けます。
 6. すべて保存します。
 
 `Code.gs` の追加点は、`doGet(e)` の `mode=apiScan` 分岐と `handleApiScan(e)` です。既存の `scanOrder()` / `cancelScanOrder()`、列番号、シート構成は維持されています。
@@ -79,6 +79,37 @@ URL末尾に `?mode=...` は付けません。
 5. GASの結果画面へ遷移し、注文番号、メッセージ、処理種別、結果コード、日時が表示されることを確認します。
 6. 「次のQR作業へ戻る」でGitHub Pagesへ戻ることを確認します。
 7. 「取消」でも同じ流れを確認します。
-8. 「進捗確認」でGASの進捗画面へ移動することを確認します。
+8. 「進捗確認」でGASのモバイル進捗画面へ移動することを確認します。
 
 形式不正のQRはGitHub Pages上でエラーになり、GASへ送信されません。空白除去、全角英数字の半角化、大文字化以外の補正や推測は行いません。
+
+## 6. モバイル進捗確認
+
+モバイル進捗確認画面のURLは次のとおりです。
+
+```text
+GAS_WEB_APP_URL?mode=mobileProgress
+```
+
+GitHub Pages側の「進捗確認」ボタンと、QR処理結果画面の「進捗確認」ボタンは、どちらも `mobileProgress` へ移動します。PC版の `GAS_WEB_APP_URL?mode=progress` と `Progress.html` は変更していません。
+
+`gas/MobileProgress.html` 下部の次の定数は、実際のGitHub Pages URLに合わせて差し替えてください。
+
+```javascript
+const QR_WORK_URL = 'https://marujyu.github.io/delivery-prep-mobile-camera/';
+```
+
+### モバイル進捗確認のテスト手順
+
+1. GAS側に `MobileProgress.html` を追加します。
+2. `Code.gs` を更新します。
+3. `ApiScanResult.html` を必要に応じて更新します。
+4. GASを新バージョンでデプロイします。
+5. GitHub Pages側の `index.html` を更新します。
+6. GitHub Pagesを反映します。
+7. スマホでGitHub Pages URLを開きます。
+8. 「進捗確認」ボタンを押します。
+9. `GAS_WEB_APP_URL?mode=mobileProgress` が開くことを確認します。
+10. 本日分の進捗率・対象・完了・未完了・他出荷が大きく表示されることを確認します。
+11. 未完了一覧がカード表示で、注文番号・品番・品名だけ表示されることを確認します。
+12. 「QR作業へ戻る」ボタンでGitHub Pagesへ戻れることを確認します。
