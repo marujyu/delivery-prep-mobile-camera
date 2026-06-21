@@ -62,7 +62,7 @@
         showStatus('GAS_WEB_APP_URLを設定してください。', 'error');
       }
     });
-    progressButton.href = buildGasUrl({ mode: 'progress' });
+    progressButton.href = buildGasUrl({ mode: 'mobileProgress' });
     inputButton.addEventListener('click', function() { startScanner('input'); });
     cancelButton.addEventListener('click', function() { startScanner('cancel'); });
 
