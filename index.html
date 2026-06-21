@@ -35,12 +35,11 @@
     .mode-status { margin: 12px 0 0; border-radius: 10px; background: #e8eef5; padding: 10px; text-align: center; font-weight: 900; }
     .mode-status.input { background: #dcfce7; color: #126b39; }
     .mode-status.cancel { background: #fee2e2; color: #991b1b; }
-    .camera-panel { margin-top: 12px; overflow: hidden; border: 2px solid #b8c4d1; border-radius: 15px; background: #101820; }
+    .camera-panel { position: relative; min-height: 260px; margin-top: 12px; overflow: hidden; border: 2px solid #b8c4d1; border-radius: 15px; background: #101820; }
     #reader { width: 100%; min-height: 260px; color: #fff; }
-    #reader:empty { display: none; }
-    #cameraPlaceholder { display: grid; min-height: 260px; place-items: center; padding: 20px; color: #fff; text-align: center; font-weight: 800; }
+    #reader video { display: block !important; width: 100% !important; min-height: 260px; object-fit: cover; }
+    #cameraPlaceholder { position: absolute; z-index: 2; inset: 0; display: grid; min-height: 260px; place-items: center; padding: 20px; background: #101820; color: #fff; text-align: center; font-weight: 800; }
     #cameraPlaceholder[hidden] { display: none; }
-    #reader video { object-fit: cover; }
     .notice { min-height: 24px; margin: 10px 2px 0; text-align: center; font-weight: 800; }
     .notice.info { color: var(--blue); }
     .notice.error { color: #b42318; }
@@ -413,12 +412,3 @@
         oscillator.frequency.value = isSuccess ? 880 : 220;
         gain.gain.setValueAtTime(0.12, audioContext.currentTime);
         gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.16);
-        oscillator.connect(gain);
-        gain.connect(audioContext.destination);
-        oscillator.start();
-        oscillator.stop(audioContext.currentTime + 0.16);
-      } catch (error) {}
-    }
-  </script>
-</body>
-</html>
