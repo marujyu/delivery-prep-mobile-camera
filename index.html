@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>納品準備 QR読み取り</title>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <style>
+    :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: #f2f5f8; color: #172033; padding: 18px; }
+    main { width: min(100%, 560px); margin: 0 auto; }
+    h1 { margin: 10px 0 6px; text-align: center; font-size: 1.55rem; }
+    .lead { margin: 0 0 20px; color: #526176; text-align: center; }
+    .panel { border-radius: 16px; background: #fff; padding: 18px; box-shadow: 0 8px 24px rgba(15, 23, 42, .1); }
+    .buttons { display: grid; gap: 12px; }
+    button, .button { width: 100%; min-height: 54px; border: 0; border-radius: 11px; padding: 14px; font: inherit; font-weight: 800; text-align: center; text-decoration: none; cursor: pointer; }
+    button:disabled { opacity: .55; cursor: default; }
+    .input { background: #167447; color: #fff; }
+    .cancel { background: #bd3b32; color: #fff; }
+    .progress { display: block; border: 2px solid #1769aa; background: #fff; color: #1769aa; }
+    #reader { display: none; width: 100%; margin-top: 18px; overflow: hidden; border-radius: 12px; }
+    #reader.active { display: block; }
+    #status { min-height: 24px; margin: 14px 0 0; text-align: center; font-weight: 700; }
+    #status.error { color: #b42318; }
+    #status.info { color: #1769aa; }
+    .mode { margin: 16px 0 0; text-align: center; font-weight: 800; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>納品準備 QR読み取り</h1>
+    <p class="lead">処理を選んでからQRコードを読み取ってください。</p>
+    <section class="panel">
+      <div class="buttons">
+        <button id="inputButton" class="input" type="button">読取</button>
+        <button id="cancelButton" class="cancel" type="button">取消</button>
+        <a id="progressButton" class="button progress" href="#">進捗確認</a>
+      </div>
+      <p id="modeLabel" class="mode" hidden></p>
+      <div id="reader"></div>
+      <p id="status" aria-live="polite"></p>
+    </section>
+  </main>
+
+  <script>
+    const GAS_WEB_APP_URL = 'ここにGASのWebアプリURLを入れる';
+
+    const ORDER_NO_PATTERN = /^M[0-9]{9}$/;
+    const readerElement = document.getElementById('reader');
+    const statusElement = document.getElementById('status');
+    const modeLabel = document.getElementById('modeLabel');
+    const inputButton = document.getElementById('inputButton');
+    const cancelButton = document.getElementById('cancelButton');
+    const progressButton = document.getElementById('progressButton');
+    let scanner = null;
+    let processing = false;
+
+    progressButton.addEventListener('click', function(event) {
+      if (!isConfigured()) {
+        event.preventDefault();
+        showStatus('GAS_WEB_APP_URLを設定してください。', 'error');
+      }
+    });
+    progressButton.href = buildGasUrl({ mode: 'progress' });
+    inputButton.addEventListener('click', function() { startScanner('input'); });
+    cancelButton.addEventListener('click', function() { startScanner('cancel'); });
+
+    function normalizeOrderNo(value) {
+      return String(value == null ? '' : value)
+        .trim()
+        .replace(/[Ａ-Ｚａ-ｚ０-９]/g, function(character) {
+          return String.fromCharCode(character.charCodeAt(0) - 0xFEE0);
+        })
+        .toUpperCase();
+    }
+
+    function isConfigured() {
+      return /^https:\/\//.test(GAS_WEB_APP_URL) && GAS_WEB_APP_URL.indexOf('ここに') === -1;
+    }
+
+    function buildGasUrl(params) {
+      const query = Object.keys(params).map(function(key) {
+        return encodeURIComponent(key) + '=' + encodeURIComponent(params[key]);
+      }).join('&');
+      return GAS_WEB_APP_URL + (GAS_WEB_APP_URL.indexOf('?') === -1 ? '?' : '&') + query;
+    }
+
+    async function startScanner(action) {
+      if (!isConfigured()) {
+        showStatus('GAS_WEB_APP_URLを設定してください。', 'error');
+        return;
+      }
+      if (scanner) return;
+
+      processing = false;
+      setButtonsDisabled(true);
+      modeLabel.hidden = false;
+      modeLabel.textContent = action === 'cancel' ? '取消モード' : '読取モード';
+      readerElement.classList.add('active');
+      showStatus('カメラを起動しています…', 'info');
+
+      try {
+        if (typeof Html5Qrcode === 'undefined') {
+          throw new Error('html5-qrcode is not available');
+        }
+        scanner = new Html5Qrcode('reader');
+        await scanner.start(
+          { facingMode: 'environment' },
+          { fps: 10, qrbox: function(width, height) {
+            const size = Math.floor(Math.min(width, height) * 0.72);
+            return { width: size, height: size };
+          } },
+          function(decodedText) { handleDecoded(decodedText, action); },
+          function() {}
+        );
+        showStatus('QRコードを枠内に映してください。', 'info');
+      } catch (error) {
+        scanner = null;
+        readerElement.classList.remove('active');
+        setButtonsDisabled(false);
+        showStatus('カメラを起動できません。ブラウザのカメラ権限を確認してください。', 'error');
+      }
+    }
+
+    async function handleDecoded(decodedText, action) {
+      if (processing) return;
+      processing = true;
+      const orderNo = normalizeOrderNo(decodedText);
+
+      if (!ORDER_NO_PATTERN.test(orderNo)) {
+        processing = false;
+        showStatus('QR形式が不正です。Mに続く数字9桁のQRを読み取ってください。', 'error');
+        return;
+      }
+
+      showStatus('読み取りました。GASへ移動します…', 'info');
+      if (scanner) {
+        try { await scanner.stop(); } catch (error) {}
+        try { scanner.clear(); } catch (error) {}
+        scanner = null;
+      }
+
+      window.location.href = buildGasUrl({
+        mode: 'apiScan',
+        action: action,
+        orderNo: orderNo,
+        returnUrl: window.location.href
+      });
+    }
+
+    function setButtonsDisabled(disabled) {
+      inputButton.disabled = disabled;
+      cancelButton.disabled = disabled;
+    }
+
+    function showStatus(message, type) {
+      statusElement.textContent = message;
+      statusElement.className = type || '';
+    }
+  </script>
+</body>
+</html>
