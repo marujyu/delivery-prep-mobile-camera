@@ -111,7 +111,7 @@
   </main>
 
   <script>
-    const ORDER_NO_PATTERN = /^M[0-9]{9}$/;
+    const ORDER_NO_PATTERN = /^(M[0-9]{9}|[0-9]{9})$/;
     const inputButton = document.getElementById('inputButton');
     const cancelButton = document.getElementById('cancelButton');
     const stopButton = document.getElementById('stopButton');
@@ -257,7 +257,7 @@
         const invalidResult = {
           ok: false,
           orderNo: orderNo || '（空のQR）',
-          message: 'QR形式が不正です。Mに続く数字9桁のQRを読み取ってください。',
+          message: 'QR形式が不正です。M+数字9桁、または数字9桁のみのQRを読み取ってください。',
           code: 'invalid_format',
           timestamp: formatCurrentTime()
         };
