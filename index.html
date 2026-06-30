@@ -53,6 +53,7 @@
     .notice.error { color: #b42318; }
     .latest { border: 2px solid #9aa9b8; border-left-width: 10px; border-radius: 15px; background: #fff; padding: 18px 15px; box-shadow: 0 4px 15px rgba(15, 23, 42, .08); }
     .latest.empty { color: var(--muted); text-align: center; }
+    .latest.reading, .latest.resolving { border-color: #738395; background: #eef2f7; }
     .latest.success { border-color: var(--green); background: #ecfdf3; }
     .latest.duplicate { border-color: var(--blue); background: #eff7ff; }
     .latest.cancel_success { border-color: var(--red); background: #fff1f0; }
@@ -111,7 +112,6 @@
   </main>
 
   <script>
-    const ORDER_NO_PATTERN = /^(M[0-9]{9}|[0-9]{9})$/;
     const inputButton = document.getElementById('inputButton');
     const cancelButton = document.getElementById('cancelButton');
     const stopButton = document.getElementById('stopButton');
@@ -253,11 +253,11 @@
       lastScanAt = now;
       const action = currentAction;
 
-      if (!ORDER_NO_PATTERN.test(orderNo)) {
+      if (!orderNo) {
         const invalidResult = {
           ok: false,
-          orderNo: orderNo || '（空のQR）',
-          message: 'QR形式が不正です。M+数字9桁、または数字9桁のみのQRを読み取ってください。',
+          orderNo: '',
+          message: '読み取り値が空です',
           code: 'invalid_format',
           timestamp: formatCurrentTime()
         };
@@ -268,7 +268,8 @@
 
       showScanConfirmation();
       isProcessing = true;
-      showNotice(orderNo + ' を処理しています…', 'info');
+      showPendingResult(orderNo, action);
+      showNotice(orderNo + ' を照合しています…', 'info');
       requestJsonp(orderNo, action)
         .then(function(payload) {
           displayResult(payload, action);
@@ -342,7 +343,7 @@
       const result = {
         ok: payload.ok === true,
         orderNo: String(orderNo),
-        message: String(payload.message || '処理結果を取得できませんでした'),
+        message: getDisplayMessage(code, payload.message),
         code: code,
         timestamp: String(payload.timestamp || formatCurrentTime()),
         actionLabel: action === 'cancel' ? '取消' : '読取'
@@ -350,7 +351,7 @@
 
       latestResult.replaceChildren();
       latestResult.className = 'latest ' + code;
-      latestResult.appendChild(makeElement('p', 'latest-order', result.orderNo));
+      latestResult.appendChild(makeElement('p', 'latest-order', getLatestOrderText(result)));
       latestResult.appendChild(makeElement('p', 'latest-message', result.message));
       latestResult.appendChild(makeElement('span', 'latest-code', result.code));
 
@@ -358,6 +359,14 @@
       if (history.length > 30) history.length = 30;
       renderHistory();
       beep(code === 'success' || code === 'cancel_success');
+    }
+
+    function showPendingResult(orderNo, action) {
+      latestResult.replaceChildren();
+      latestResult.className = 'latest resolving';
+      latestResult.appendChild(makeElement('p', 'latest-order', orderNo));
+      latestResult.appendChild(makeElement('p', 'latest-message', '読み取りました。照合中...'));
+      latestResult.appendChild(makeElement('span', 'latest-code', action === 'cancel' ? 'cancel' : 'input'));
     }
 
     function renderHistory() {
@@ -383,6 +392,29 @@
         'invalid_format', 'not_found', 'error', 'failure', 'jsonp_error'
       ];
       return allowed.indexOf(String(code)) >= 0 ? String(code) : 'failure';
+    }
+
+    function getDisplayMessage(code, fallback) {
+      const messages = {
+        success: '納品準備完了',
+        duplicate: 'すでに完了済み',
+        cancel_success: '準備完了を取り消しました',
+        cancel_not_done: '取消不要：まだ準備完了になっていません',
+        not_target: '出荷工程対象のため組立課対象外',
+        not_found: '注文番号が見つかりません',
+        invalid_format: '読み取り値が空です',
+        error: '処理に失敗しました',
+        failure: '処理に失敗しました',
+        jsonp_error: '通信に失敗しました'
+      };
+      return messages[code] || String(fallback || '処理結果を取得できませんでした');
+    }
+
+    function getLatestOrderText(result) {
+      if (result.code === 'success' || result.code === 'cancel_success') {
+        return '〇 ' + result.orderNo;
+      }
+      return result.orderNo;
     }
 
     function makeElement(tagName, className, text) {
